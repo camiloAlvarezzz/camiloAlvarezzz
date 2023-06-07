@@ -1,0 +1,1297 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define MAXNAME 50
+#define MAXRUT 12
+
+struct Cliente{
+    char nombreCliente[MAXNAME];
+    char rutCliente[MAXRUT];
+    int numVentas;
+    struct Ventas **gastosCliente;
+};
+
+struct NodoCliente{
+    struct Cliente *datosCliente;
+    struct NodoCliente *sig;
+};
+
+struct Ventas{
+    char nombreMarca[MAXNAME];
+    char nombreModelo[MAXNAME];
+    double montoVentaAuto;
+    char accesorios[MAXNAME];
+    double montoVentaAcc;
+    char repuestos[MAXNAME];
+    double montoVentaRep;
+    double totalComprado;
+};
+
+struct Producto{
+    char accesorios[MAXNAME];
+    char repuestos[MAXNAME];
+    char marca[MAXNAME];
+    char modelo[MAXNAME];
+    int llamadaAutoRecall;
+    struct Ventas **ventasProductos;
+};
+
+struct NodoProducto{
+    struct Producto *datosProductos;
+    struct NodoProducto *ant, *sig;
+};
+
+struct Importacion{
+    int idImportacion;
+    int cantidadProductosImportados;
+    float tiempoDesplazamiento;
+    int stockProveedores;
+    struct NodoProducto *productos;
+};
+
+struct NodoImportacion{
+    struct Importacion *datosImportacion;
+    struct NodoImportacion *izquierda, *derecha;
+};
+
+struct Planta{
+    int idPlanta;
+    char nombrePlanta[MAXNAME];
+    int almacenamiento;
+    float entregaProductos;
+    int distribucionProductos;
+    struct NodoImportacion *importacion;
+};
+
+struct NodoPlanta{
+    struct Planta *datosPlanta;
+    struct NodoPlanta *ant, *sig;
+};
+
+struct Region{
+    char nombreRegion[MAXNAME];
+    char comuna[MAXNAME];
+    struct NodoPlanta *plantas;
+};
+
+struct NodoRegion{
+    struct Region *datosRegion;
+    struct NodoRegion *sig;
+};
+
+struct EmpresaDerco{
+    struct NodoCliente *headCliente;
+    struct NodoRegion *headRegion;
+};
+
+
+void mostrarMarcasModelosRecursivo(struct NodoImportacion *raiz){
+    if(raiz !=NULL){
+        mostrarMarcasModelosRecursivo(raiz->izquierda);
+        struct NodoProducto *recProducto = raiz->datosImportacion->productos;
+        while(recProducto != NULL){
+            printf("Marca: %s\n",recProducto->datosProductos->marca);
+            printf("Modelo: %s\n",recProducto->datosProductos->modelo);
+            recProducto = recProducto->sig;
+        }
+        mostrarMarcasModelosRecursivo(raiz->derecha);
+    }
+}
+
+
+void mostrarMarcasModelosPorRegion(struct NodoRegion *headRegion){
+
+    struct NodoRegion *recRegion = headRegion;
+    while(recRegion != NULL){
+        printf("Region: %s", recRegion->datosRegion->nombreRegion);
+        if(recRegion->datosRegion->plantas != NULL){
+            struct NodoPlanta *recPlanta = recRegion->datosRegion->plantas;
+            do{
+                struct NodoImportacion *recImportacion = recPlanta->datosPlanta->importacion;
+                mostrarMarcasModelosRecursivo(recImportacion);
+                recPlanta = recPlanta->sig;
+            }while(recPlanta != recRegion->datosRegion->plantas);
+        }
+        recRegion = recRegion->sig;
+    }
+}
+
+
+void plantaMayorDistribucion(struct NodoPlanta *headPlanta){
+
+    struct Planta *plantaMayorDist = NULL;
+    struct NodoPlanta *recPlanta;
+    int mayorDist = 0;
+    if(headPlanta != NULL){
+        recPlanta = headPlanta;
+        do{
+            if(recPlanta->datosPlanta->distribucionProductos > mayorDist){
+                mayorDist = recPlanta->datosPlanta->distribucionProductos;
+                plantaMayorDist = recPlanta->datosPlanta;
+            }
+            recPlanta = recPlanta->sig;
+        }while(recPlanta != headPlanta);
+    }
+    printf("La planta con mayor cantidad de productos distribuidos es %s\n",plantaMayorDist->nombrePlanta);
+}
+
+double totalCompradoCliente(struct NodoCliente *headCliente, char *rutBuscado){
+    struct NodoCliente *recCliente = headCliente;
+    double montoTotal = 0.0;
+    while(recCliente != NULL){
+        if(strcmp(recCliente->datosCliente->rutCliente,rutBuscado)==0){
+            struct Ventas **gastosCliente = recCliente->datosCliente->gastosCliente;
+            for (int i = 0; gastosCliente[i] != NULL; i++) {
+                montoTotal += gastosCliente[i]->totalComprado;
+            }
+        }
+        recCliente = recCliente->sig;
+    }
+    return montoTotal;
+}
+
+void clienteMayorGasto(struct NodoCliente *headCliente){
+    struct NodoCliente *recCliente = headCliente;
+    struct Cliente *clienteMayor = NULL;
+    double mayorMonto = 0.0;
+    while(recCliente != NULL){
+        if(totalCompradoCliente(recCliente,recCliente->datosCliente->rutCliente)>mayorMonto){
+            mayorMonto = totalCompradoCliente(recCliente,recCliente->datosCliente->rutCliente);
+            clienteMayor = recCliente->datosCliente;
+        }
+        recCliente = recCliente->sig;
+    }
+    if(clienteMayor != NULL) printf("El cliente con mayor gastos en la Empresa Derco es %s\n",clienteMayor->nombreCliente);
+    else printf("No se ha encontrado ningún cliente.\n");
+}
+
+
+void autoMasRecall(struct NodoProducto *headProducto){
+    struct NodoProducto *recProducto = headProducto;
+    struct Producto *autoMax = NULL;
+    int maxRecall = 0;
+    while(recProducto != NULL){
+        if(recProducto->datosProductos->llamadaAutoRecall > maxRecall){
+            maxRecall = recProducto->datosProductos->llamadaAutoRecall;
+            autoMax = recProducto->datosProductos;
+        }
+        recProducto = recProducto->sig;
+    }
+    if(autoMax == NULL){
+        printf("No se encontraro autos con recall.\n");
+    }
+    else printf("El auto con más recall es el modelo %s.\n",autoMax->modelo);
+}
+
+void buscarRepuestoRecursivo(struct NodoImportacion *raiz, char *plantaBuscada, char *repuestoBuscado){
+    if(raiz != NULL){
+        buscarRepuestoRecursivo(raiz->izquierda,plantaBuscada,repuestoBuscado);
+        struct NodoProducto *recProducto = raiz->datosImportacion->productos;
+        while(recProducto != NULL){
+            if(strcmp(recProducto->datosProductos->repuestos,repuestoBuscado)==0){
+                printf("El repuesto que busca sí se encuentra en %s \n",plantaBuscada);
+            }
+            recProducto = recProducto->sig;
+        }
+        buscarRepuestoRecursivo(raiz->derecha,plantaBuscada,repuestoBuscado);
+    }
+}
+
+void buscarRepuestoEnPlanta(struct NodoPlanta *headPlanta, char *plantaBuscada, char *repuestoBuscado){
+    struct NodoPlanta *recPlanta = NULL;
+    if(headPlanta != NULL){
+        do{
+            recPlanta = headPlanta;
+            if(strcmp(recPlanta->datosPlanta->nombrePlanta, plantaBuscada)== 0) {
+                struct NodoImportacion *recImportacion = recPlanta->datosPlanta->importacion;
+                buscarRepuestoRecursivo(recImportacion, plantaBuscada, repuestoBuscado);
+            }
+            recPlanta = recPlanta->sig;
+        }while(recPlanta !=headPlanta);
+    }
+
+    printf("El repuesto que busca no se encuentra en planta.\n");
+}
+
+double montoTotalMarca(struct NodoProducto *headProducto, char*marcaBuscada)
+{
+    struct NodoProducto *recProducto = headProducto;
+    double montoTotal = 0;
+    while(recProducto != NULL)
+    {
+        if(strcmp(recProducto->datosProductos->marca, marcaBuscada) == 0)
+        {
+            int i;
+            for(i = 0; recProducto->datosProductos->ventasProductos[i] != NULL; i++)
+            {
+                montoTotal += recProducto->datosProductos->ventasProductos[i]->montoVentaAuto;
+            }
+            recProducto = recProducto->sig;
+        }
+    }
+    return montoTotal;
+}
+
+void marcaMayorMontoVenta(struct NodoProducto *headProducto){
+
+    struct NodoProducto *recProducto = headProducto;
+    double montoMax = 0.0;
+    struct Producto *marcaMayorVenta = NULL;
+    while(recProducto != NULL){
+        int i;
+        for(i = 0; recProducto->datosProductos->ventasProductos [i] != NULL; i++)
+            if(montoTotalMarca(recProducto,recProducto->datosProductos->ventasProductos[i]->nombreMarca)>montoMax){
+                montoMax = montoTotalMarca(recProducto,recProducto->datosProductos->ventasProductos[i]->nombreMarca);
+                marcaMayorVenta = recProducto->datosProductos;
+        }
+        recProducto = recProducto->sig;
+    }
+    printf("La marca que tiene un monto de venta mas elevado es %s\n",marcaMayorVenta->marca);
+}
+
+void plantaMayorCapacAlmacenamiento(struct NodoPlanta *headPlanta){
+    struct NodoPlanta *recPlanta = NULL;
+    struct Planta *plantaMax = NULL;
+    int mayorCap = 0;
+    if(headPlanta != NULL){
+        recPlanta = headPlanta;
+        do{
+            if(recPlanta->datosPlanta->almacenamiento > mayorCap){
+                mayorCap = recPlanta->datosPlanta->almacenamiento;
+                plantaMax = recPlanta->datosPlanta;
+            }
+            recPlanta = recPlanta->sig;
+        }while(recPlanta != headPlanta);
+    }
+    printf("La planta con mayor capacidad de almacenamiento es: %s", plantaMax->nombrePlanta);
+}
+
+void eliminarRegion(struct NodoRegion **headRegion)
+{
+    if (*headRegion == NULL) {
+        printf("No se encontro regiones registrados\n");
+        return;
+    }
+
+    char region[MAXNAME];
+    char comuna[MAXNAME];
+    printf("Ingrese la region de la empresa que desea eliminar: \n");
+    scanf("%s", region);
+    printf("Ingrese la comuna de la region que desea eliminar: \n");
+    scanf("%s", comuna);
+
+    struct NodoRegion *recRegion = *headRegion;
+    struct NodoRegion *regionAnterior = NULL;
+    while (recRegion != NULL) {
+        if (strcmp(recRegion->datosRegion->nombreRegion, region) == 0 && strcmp(recRegion->datosRegion->comuna, comuna) == 0)
+        {
+            if (regionAnterior == NULL) {
+                *headRegion = recRegion->sig;
+            } else {
+                regionAnterior->sig = recRegion->sig;
+            }
+            free(recRegion->datosRegion);
+            free(recRegion);
+            printf("Se ha eliminado el producto correctamente.\n");
+            return;
+        }
+
+        regionAnterior = recRegion;
+        recRegion = recRegion->sig;
+    }
+    printf("No se encontró un producto con la marca y modelo especificados.\n");
+}
+
+void agregarRegion(struct NodoRegion **headRegion)
+{
+    struct NodoRegion *nuevaRegion = (struct NodoRegion*) malloc(sizeof(struct NodoRegion));
+
+    nuevaRegion->datosRegion = (struct Region*) malloc(sizeof(struct Region));
+
+    printf("Ingrese el nombre de la nueva Region: \n");
+    nuevaRegion->datosRegion->nombreRegion = (char*) malloc(MAXNAME *sizeof(char));
+    scanf("%s",nuevaRegion->datosRegion->nombreRegion);
+
+    printf("Ingrese el nombre de la Comuna: \n");
+    nuevaRegion->datosRegion->comuna = (char*) malloc(MAXNAME *sizeof(char));
+    scanf("%s",nuevaRegion->datosRegion->comuna);
+
+    nuevaRegion->sig = (*headRegion);
+    (*headRegion) = nuevaRegion;
+}
+
+struct NodoRegion *buscarRegion(struct NodoRegion *headRegion, char *region){
+    struct NodoRegion *recRegion = headRegion;
+    while(recRegion != NULL){
+        if(strcmp(recRegion->datosRegion->nombreRegion,region)==0)
+            return recRegion;
+        recRegion = recRegion->sig;
+    }
+    return NULL;
+}
+
+void modificarRegion(struct  NodoRegion *headRegion, char *regionBuscada){
+    struct NodoRegion *region = buscarRegion(headRegion, regionBuscada);
+    if(region != NULL){
+        printf("Ingrese la modificaci�n de la region:\n");
+        scanf("%s", region->datosRegion->nombreRegion);
+        printf("Ingrese la modificaci�n de la comuna");
+        scanf("%s", region->datosRegion->comuna);
+    }
+    else printf("No se ha encontrado la region entregada, intentelo nuevamenta\n");
+}
+
+void mostrarRegiones(struct NodoRegion *headRegion)
+{
+    struct NodoRegion *recRegiones = headRegion;
+    if(recRegiones == NULL) printf("No se han registrado region\n");
+    while(recRegiones != NULL)
+    {
+        printf("Region: %s",recRegiones->datosRegion->nombreRegion);
+        printf("Comuna: %s",recRegiones->datosRegion->comuna);
+        recRegiones = recRegiones->sig;
+    }
+}
+
+void menuSwitchRegiones(struct NodoRegion *headRegion){
+    int opcion;
+    do{
+        printf("*******-BIENVENIDO AL MENU DE REGIONES-*******\n");
+        printf("1.- MOSTRAR REGIONES Y COMUNA\n");
+        printf("2.- MODIFICAR REGION\n");
+        printf("3.- AGREGAR REGION\n");
+        printf("4.- ELIMINAR REGION\n");
+        printf("0.- SALIR\n");
+        printf("Ingrese una opcion");
+        scanf("%d", &opcion);
+
+        switch(opcion)
+        {
+            case 1:{
+                mostrarRegiones(headRegion);
+                break;
+            }
+            case 2:{
+                char region[MAXNAME];
+                printf("ingrese la region que quiere modificar:");
+                scanf("%s", region);
+                modificarRegion(headRegion,region);
+                break;
+            }
+            case 3:{
+                agregarRegion(&(headRegion));
+                break;
+            }
+            case 4:{
+                eliminarRegion(&(headRegion));
+                break;
+            }
+            case 0:{
+                printf("Saliendo al menu princial\n");
+                break;
+            }
+            default:{
+                printf("Ingrese una opcion valida, intente nuevamente\n");
+                break;
+            }
+
+        }
+    }while(opcion != 0);
+
+}
+
+void eliminarPlanta(struct NodoPlanta **headPlanta, int idPlanta)
+{
+    if (*headPlanta == NULL)
+    {
+        printf("No se encontraron plantas registradas.\n");
+        return;
+    }
+
+    struct NodoPlanta *recPlanta = *headPlanta;
+    struct NodoPlanta *ant = NULL;
+
+    while (recPlanta != NULL)
+    {
+        if (recPlanta->datosPlanta->idPlanta == idPlanta)
+        {
+            if (ant == NULL)
+            {
+                *headPlanta = recPlanta->sig;
+            }
+            else
+            {
+                ant->sig = recPlanta->sig;
+            }
+
+            free(recPlanta->datosPlanta->nombrePlanta);
+            free(recPlanta->datosPlanta);
+            free(recPlanta);
+            printf("La planta con el ID %d ha sido eliminada.\n", idPlanta);
+            return;
+        }
+
+        ant = recPlanta;
+        recPlanta = recPlanta->sig;
+
+        if (recPlanta == *headPlanta)
+        {
+            break;
+        }
+    }
+
+    printf("No se encontró una planta con el ID %d.\n", idPlanta);
+}
+
+void agregarDatosPlanta(struct NodoPlanta **headPlanta)
+{
+    struct NodoPlanta *nuevoNodo = (struct NodoPlanta*) malloc(sizeof(struct NodoPlanta));
+    nuevoNodo->datosPlanta = (struct Planta*) malloc(sizeof(struct Planta));
+
+    printf("Ingrese el ID de la Planta: ");
+    scanf("%d", &(nuevoNodo->datosPlanta->idPlanta));
+
+    printf("\nIngrese el nombre de la Planta: ");
+    nuevoNodo->datosPlanta->nombrePlanta = (char*) malloc(MAXNAME * sizeof(char));
+    scanf("%s", nuevoNodo->datosPlanta->nombrePlanta);
+
+    printf("Ingrese la capacidad de almacenamiento de la Planta: ");
+    scanf("%d", &(nuevoNodo->datosPlanta->almacenamiento));
+
+    printf("Ingrese el tiempo de entrega del producto: ");
+    scanf("%f", &(nuevoNodo->datosPlanta->entregaProductos));
+
+    printf("Ingrese la capacidad de distribucion de productos por mes: ");
+    scanf("%d", &(nuevoNodo->datosPlanta->distribucionProductos));
+
+    if (*headPlanta == NULL)
+    {
+        nuevoNodo->ant = nuevoNodo;
+        nuevoNodo->sig = nuevoNodo;
+        *headPlanta = nuevoNodo;
+    }
+    else
+    {
+        nuevoNodo->ant = (*headPlanta)->ant;
+        nuevoNodo->sig = *headPlanta;
+        (*headPlanta)->ant->sig = nuevoNodo;
+        (*headPlanta)->ant = nuevoNodo;
+    }
+    printf("Se ingresaron correctamente los datos\n");
+}
+
+struct NodoPlanta *buscarPlanta(struct NodoPlanta *headPlanta, char *plantaBuscada)
+{
+    struct NodoPlanta *recPlanta;
+    if(headPlanta != NULL)
+    {
+        recPlanta = headPlanta;
+        do{
+            if(strcmp(recPlanta->datosPlanta->nombrePlanta,plantaBuscada)==0)
+                return recPlanta;
+            recPlanta = recPlanta->sig;
+        }while(recPlanta != headPlanta);
+    }
+    return NULL;
+}
+
+void modificarPlanta(struct NodoPlanta *headPlanta, char *plantaBuscada)
+{
+    struct NodoPlanta *planta = buscarPlanta(headPlanta, plantaBuscada);
+    if(planta != NULL){
+        printf("Ingrese la modificaci�n del nombre de la planta:\n");
+        scanf("%s", planta->datosPlanta->nombrePlanta);
+    }
+    else printf("No se ha encontrado la planta entregada, intentelo nuevamenta\n");
+}
+
+void mostrarPlanta(struct NodoPlanta *headPlanta)
+{
+    struct NodoPlanta *recPlanta;
+    if(headPlanta != NULL)
+    {
+        recPlanta = headPlanta;
+        do{
+            printf("Direccion ID de la Planta: %d",recPlanta->datosPlanta->idPlanta);
+            printf("Nombre de la Planta: %s",recPlanta->datosPlanta->nombrePlanta);
+            printf("Almacenamiento de la Planta: %d",recPlanta->datosPlanta->almacenamiento);
+            printf("Tiempo de entrega de Producto: %f",recPlanta->datosPlanta->entregaProductos);
+            printf("Capcidad de distribucion por mes: %d",recPlanta->datosPlanta->distribucionProductos);
+            recPlanta = recPlanta->sig;
+        }while(recPlanta != headPlanta);
+    }
+}
+
+
+void menuSwitchPlantas(struct NodoPlanta *headPlanta){
+    int opcion;
+    do{
+        printf("*******-BIENVENIDO AL MENU DE PLANTAS-*******\n");
+        printf("1.- MOSTRAR DATOS DE LA PLANTA\n");
+        printf("2.- MODIFICAR DATOS DE PLANTA\n");
+        printf("3.- AGREGAR DATOS A PLANTA\n");
+        printf("4.- ELIMINAR DATOS DE LA PLANTA\n");
+        printf("0.- SALIR\n");
+        printf("Ingrese una opcion\n");
+        scanf("%d", &opcion);
+        switch(opcion)
+        {
+            case 1:{
+                mostrarPlanta(headPlanta);
+                break;
+            }
+            case 2:{
+                char planta[MAXNAME];
+                printf("ingrese el nombre de planta que quiere modificar:");
+                scanf("%s", planta);
+                modificarPlanta(headPlanta,planta);
+                break;
+            }
+            case 3:{
+                agregarDatosPlanta(&(headPlanta));
+                break;
+            }
+            case 4:{
+                int idPlanta;
+                printf("Ingrese el id de la planta a eliminar");
+                scanf("%d",&idPlanta);
+                eliminarPlanta(&(headPlanta),idPlanta);
+                break;
+            }
+            case 0:{
+                printf("Saliendo al menu princial\n");
+                break;
+            }
+            default:{
+                printf("Ingrese una opcion valida, intente nuevamente\n");
+                break;
+            }
+
+        }
+    }while(opcion != 0);
+}
+
+struct NodoImportacion *encontrarSucesor(struct NodoImportacion *headImportacion)
+{
+
+    struct NodoImportacion *rec = headImportacion;
+    while(rec != NULL)
+    {
+        if(rec->izquierda != NULL)
+            rec = rec->izquierda;
+    }
+    return rec;
+}
+
+
+void eliminarImportacion(struct NodoImportacion **headImportacion, int idBuscado)
+{
+    if(*headImportacion == NULL){
+        printf("No se encontro Importaciones\n");
+        return;
+    }
+
+    if((*headImportacion)->datosImportacion->idImportacion > idBuscado)
+        eliminarImportacion(&((*headImportacion)->izquierda),idBuscado);
+    else if((*headImportacion)->datosImportacion->idImportacion < idBuscado){
+            eliminarImportacion(&((*headImportacion)->derecha),idBuscado);
+    }
+    else {
+        struct NodoImportacion *nodoEliminar = *headImportacion;
+        if (nodoEliminar->izquierda == NULL && nodoEliminar->derecha == NULL) {
+            free(nodoEliminar->datosImportacion);
+            free(nodoEliminar);
+            *headImportacion = NULL;
+        } else if (nodoEliminar->izquierda == NULL) {
+
+            *headImportacion = nodoEliminar->derecha;
+            free(nodoEliminar->datosImportacion);
+            free(nodoEliminar);
+        } else if (nodoEliminar->derecha == NULL) {
+            *headImportacion = nodoEliminar->izquierda;
+            free(nodoEliminar->datosImportacion);
+            free(nodoEliminar);
+        } else {
+            struct NodoImportacion *hijo = encontrarSucesor(nodoEliminar->derecha);
+            nodoEliminar->datosImportacion = hijo->datosImportacion;
+            eliminarImportacion(&(nodoEliminar->derecha), hijo->datosImportacion->idImportacion);
+        }
+    }
+    printf("Se a eliminado correctamente la importacion\n");
+}
+
+
+void agregarDatosImportacion(struct NodoImportacion **headImportacion)
+{
+    struct Importacion *nuevaImportacion = (struct Importacion*) malloc(sizeof(struct Importacion));
+
+    printf("Ingrese el ID de la importacion: ");
+    scanf("%d", &(nuevaImportacion->idImportacion));
+    printf("Ingrese la cantidad de productos importados: ");
+    scanf("%d", &(nuevaImportacion->cantidadProductosImportados));
+    printf("Ingrese el tiempo de desplazamiento: ");
+    scanf("%f", &(nuevaImportacion->tiempoDesplazamiento));
+    printf("Ingrese el stock de Proveedores: ");
+    scanf("%d", &(nuevaImportacion->stockProveedores));
+
+    struct NodoImportacion *nuevoNodo = (struct NodoImportacion*) malloc(sizeof(struct NodoImportacion));
+    nuevoNodo->datosImportacion = nuevaImportacion;
+    nuevoNodo->izquierda = NULL;
+    nuevoNodo->derecha = NULL;
+
+    if (*headImportacion == NULL)
+    {
+        *headImportacion = nuevoNodo;
+    }
+    else
+    {
+        struct NodoImportacion *recImportacion = *headImportacion;
+        struct NodoImportacion *padre = NULL;
+
+        while (recImportacion != NULL)
+        {
+            padre = recImportacion;
+
+            if (nuevaImportacion->cantidadProductosImportados < recImportacion->datosImportacion->cantidadProductosImportados)
+                recImportacion = recImportacion->izquierda;
+            else
+                recImportacion = recImportacion->derecha;
+        }
+
+        if (nuevaImportacion->cantidadProductosImportados < padre->datosImportacion->cantidadProductosImportados)
+            padre->izquierda = nuevoNodo;
+        else
+            padre->derecha = nuevoNodo;
+    }
+
+    printf("Se ha agregado la nueva importacion\n");
+}
+
+struct Importacion *buscarIdImportacion(struct NodoImportacion *headImportacion, int idBuscado)
+{
+    if(headImportacion != NULL){
+        struct NodoImportacion *recImportacion = headImportacion;
+        while(recImportacion != NULL)
+        {
+            if(recImportacion->datosImportacion->idImportacion == idBuscado)
+                return recImportacion->datosImportacion;
+            if(idBuscado < recImportacion->datosImportacion->idImportacion)
+                recImportacion = recImportacion->izquierda;
+            else
+                recImportacion = recImportacion->derecha;
+        }
+    }
+}
+
+void modificarImportacion(struct NodoImportacion *headImportacion, int idBuscado)
+{
+    if(headImportacion == NULL)
+    {
+        printf("No se encontro importaciones registradas\n");
+        return;
+    }
+    struct Importacion *recImportacion = buscarIdImportacion(headImportacion, idBuscado);
+
+    if(recImportacion != NULL)
+    {
+        printf("Ingrese la nueva cantidad de productos Importados: ");
+        scanf("%d", &(recImportacion->cantidadProductosImportados));
+        printf("\n Ingrese el nuevo tiempo de desplazamiento: ");
+        scanf("%f", &(recImportacion->tiempoDesplazamiento));
+        printf("\n Ingrese el nuevo stock de proveedores: ");
+        scanf("%d", &(recImportacion->stockProveedores));
+        printf("Los datos de importacion han sido modificados\n");
+    }
+    else
+        printf("El ID de la importacion no existe\n");
+
+
+}
+
+void mostrarImportaciones(struct NodoImportacion *headImportacion)
+{
+    if(headImportacion == NULL)
+    {
+        printf("No se encontro importaciones registradas\n");
+        return;
+    }
+
+    printf("Cantidad de productos Importados: %d\n",headImportacion->datosImportacion->cantidadProductosImportados);
+    printf("Tiempo de desplazamiento: %f\n", headImportacion->datosImportacion->tiempoDesplazamiento);
+    printf("Stock de provedores: %d\n",headImportacion->datosImportacion->stockProveedores);
+
+    mostrarImportaciones(headImportacion->izquierda);
+    mostrarImportaciones(headImportacion->derecha);
+
+}
+
+void menuSwitchImportaciones(struct NodoImportacion *headImportacion)
+{
+    int opcion;
+    do{
+        printf("*******-BIENVENIDO AL MENU DE IMPORTACIONES-*******\n");
+        printf("1.- MOSTRAR DATOS DE LAS IMPOTACIONES\n");
+        printf("2.- MODIFICAR DATOS DE IMPORTACION\n");
+        printf("3.- AGREGAR DATOS A IMPORTACION");
+        printf("4.- ELIMINAR DATOS DE LA IMPORTACION");
+        printf("0.- SALIR\n");
+        printf("Ingrese una opcion");
+        scanf("%d", &opcion);
+        switch(opcion)
+        {
+            case 1:{
+                mostrarImportaciones(headImportacion);
+                break;
+            }
+            case 2:{
+                int idImportacion;
+                printf("Ingrese el ID de Importacion que desea modificar: ");
+                scanf("%d",&idImportacion);
+                modificarImportacion(headImportacion, idImportacion);
+                break;
+            }
+            case 3:{
+                agregarDatosImportacion(&(headImportacion));
+                break;
+            }
+            case 4:{
+                int idImportacion;
+                printf("Igrese el ID de la importacion que desea eliminar: ");
+                scanf("%d",&idImportacion);
+                eliminarImportacion(&(headImportacion), idImportacion);
+                break;
+            }
+            case 0:{
+                printf("Saliendo al menu princial\n");
+                break;
+            }
+            default:{
+                printf("Ingrese una opcion valida, intente nuevamente\n");
+                break;
+            }
+
+        }
+    }while(opcion != 0);
+}
+
+void menuSwitchAnalisis(struct EmpresaDerco *derco){
+    struct EmpresaDerco *rec = derco;
+    char plantaBuscada[MAXNAME];
+    char repuestoBuscado[MAXNAME];
+
+    int opcion;
+
+    do{
+        printf("1.- Mostrar marcas y modelos por Región\n");
+        printf("2.- Marca con mayor monto en ventas\n");
+        printf("3.- Planta con mayor distribución\n");
+        printf("4.- Cliente con mayor monto invertido\n");
+        printf("5.- Marca con mayor cantidad de recalls\n");
+        printf("6.- Buscar repuesto en planta\n");
+        printf("7.- Mostrar planta con mayor capacidad de almacenamiento\n");
+        printf("0.- Salir\n");
+
+        printf("Ingrese una opción\n");
+        scanf("%d", &opcion);
+
+        switch(opcion){
+            case 1:{
+                mostrarMarcasModelosPorRegion(rec->headRegion);
+                break;
+            }
+
+            case 2:{
+                marcaMayorMontoVenta(rec->headRegion->datosRegion->plantas->datosPlanta->importacion->datosImportacion->productos);
+                break;
+            }
+
+            case 3:{
+                plantaMayorDistribucion(rec->headRegion->datosRegion->plantas);
+                break;
+            }
+
+            case 4:{
+                clienteMayorGasto(rec->headCliente);
+                break;
+            }
+
+            case 5:{
+                autoMasRecall(rec->headRegion->datosRegion->plantas->datosPlanta->importacion->datosImportacion->productos);
+                break;
+            }
+
+            case 6:{
+                printf("Ingrese la planta en donde desea buscar: \n");
+                scanf("%s",plantaBuscada);
+                printf("Ingrese el repuesto que busca: \n");
+                scanf("%s",repuestoBuscado);
+                buscarRepuestoEnPlanta(rec->headRegion->datosRegion->plantas,plantaBuscada,repuestoBuscado);
+                break;
+            }
+
+            case 7:{
+                plantaMayorCapacAlmacenamiento(rec->headRegion->datosRegion->plantas);
+                break;
+            }
+
+            case 0:{
+                printf("Terminando programa.\n");
+                break;
+            }
+
+            default:{
+                printf("Ha ocurrido un error, favor intentar nuevamente\n");
+                break;
+            }
+        }
+
+    }while(opcion != 0);
+}
+
+
+void agregarCliente(struct NodoCliente **headCliente) {
+    struct NodoCliente *cliente = (struct NodoCliente*) malloc(sizeof(struct NodoCliente));
+
+    cliente->datosCliente = (struct Cliente*) malloc(sizeof(struct Cliente));
+
+    printf("Ingrese el nombre del cliente :");
+    cliente->datosCliente->nombreCliente = (char*) malloc(MAXNAME *sizeof(char));
+    scanf("%s",cliente->datosCliente->nombreCliente);
+
+    printf("Ingrese el RUT del cliente : ");
+    cliente->datosCliente->rutCliente = (char*) malloc(MAXRUT *sizeof(char));
+    scanf("%s",cliente->datosCliente->rutCliente);
+
+    printf("Ingrese la cantidad de gastos del Cliente :");
+    int cantidadGastos;
+    scanf("%d",&(cantidadGastos));
+
+    cliente->datosCliente->gastosCliente = (struct Ventas**) malloc(cantidadGastos * sizeof(struct Ventas*));
+    cliente->datosCliente->numVentas = cantidadGastos;
+
+    for (int i = 0; i < cliente->datosCliente->numVentas; i++) {
+        cliente->datosCliente->gastosCliente = (struct Ventas**) malloc(cantidadGastos * sizeof(struct Ventas*));
+
+        printf("¿Se ha comprado un auto? (1. Sí, 0. No)\n");
+        int opcionAuto;
+        scanf("%d", &opcionAuto);
+        if(opcionAuto == 1){
+            printf("Ingrese el nombre de la marca del auto: \n");
+            scanf("%s", cliente->datosCliente->gastosCliente[i]->nombreMarca);
+
+            printf("Ingrese el nombre del modelo del auto: \n");
+            scanf("%s", cliente->datosCliente->gastosCliente[i]->nombreModelo);
+
+            printf("Ingrese el monto de la venta del auto: \n");
+            scanf("%lf", &(cliente->datosCliente->gastosCliente[i]->montoVentaAuto));
+        }
+        else{
+            strcpy(cliente->datosCliente->gastosCliente[i]->nombreMarca," "); // Cadena vacía
+            strcpy(cliente->datosCliente->gastosCliente[i]->nombreModelo," ");
+            cliente->datosCliente->gastosCliente[i]->montoVentaAuto = 0.0; // Valor predeterminado de cero
+        }
+
+        printf("¿Se ha comprado algún accesorio? (1. Sí, 0. No)\n");
+        int opcionAccesorio;
+        scanf("%d",&opcionAccesorio);
+        if(opcionAccesorio == 1){
+            printf("Ingrese los accesorios comprados: \n");
+            scanf("%s", cliente->datosCliente->gastosCliente[i]->accesorios);
+            printf("Ingrese el monto de la venta de accesorios: \n");
+            scanf("%lf", cliente->datosCliente->gastosCliente[i]->montoVentaAcc);
+        }
+        else{
+            strcpy(cliente->datosCliente->gastosCliente[i]->accesorios," ");
+            cliente->datosCliente->gastosCliente[i]->montoVentaAcc = 0.0;
+        }
+
+        printf("¿Se ha comprado algún repuesto? (1. Sí, 0. No)\n");
+        int opcionRepuesto;
+        scanf("%d",&opcionRepuesto);
+        if(opcionRepuesto == 1){
+            printf("Ingrese los repuestos comprados: \n");
+            scanf("%s", cliente->datosCliente->gastosCliente[i]->repuestos);
+            printf("Ingrese el monto de la venta de repuestos: \n");
+            scanf("%lf", cliente->datosCliente->gastosCliente[i]->montoVentaRep);
+        }
+        else{
+            strcpy(cliente->datosCliente->gastosCliente[i]->repuestos," ");
+            cliente->datosCliente->gastosCliente[i]->montoVentaRep = 0.0;
+        }
+    }
+
+    cliente->sig = *headCliente;
+    *headCliente = cliente;
+}
+
+
+void eliminarCliente(struct NodoCliente **headCliente, char *rut){
+    struct NodoCliente *rec = *headCliente;
+    struct NodoCliente *ant = NULL;
+    while(rec != NULL){
+        if(strcmp(rec->datosCliente->rutCliente, rut)==0){
+            if(ant == NULL) *headCliente = rec->sig;
+            else ant->sig = rec->sig;
+            free(rec);
+            printf("Se ha eliminado al cliente de manera correcta\n");
+            return;
+        }
+        ant = rec;
+        rec = rec->sig;
+    }
+    printf("No se ha encontrado el cliente que desea eliminar\n");
+}
+
+struct NodoCliente *clienteBuscado(struct NodoCliente *headCliente, char *rut){
+    struct NodoCliente *recCliente = headCliente;
+    while(recCliente != NULL){
+        if(strcmp(recCliente->datosCliente->rutCliente,rut)==0) return recCliente;
+        recCliente = recCliente->sig;
+    }
+    return NULL;
+}
+
+void modificarCliente(struct NodoCliente *headCliente, char *rutModificar) {
+    struct NodoCliente *cliente = clienteBuscado(headCliente,rutModificar);
+    if(cliente !=NULL){
+        printf("¿Qué campos desea modificar del cliente?\n");
+        printf("Eliga una opción:\n");
+        printf("1. Modificar Nombre\n");
+        printf("2. Modificar Rut\n");
+        printf("3. Modificar gastos del Cliente\n");
+        int opcionModificar;
+        scanf("%d",&opcionModificar);
+
+        switch(opcionModificar){
+            case 1:{
+                printf("Ingrese el nombre modificado: \n");
+                scanf("%s", cliente->datosCliente->nombreCliente);
+                break;
+            }
+
+            case 2:{
+                printf("Ingrese el rut modificado: \n");
+                scanf("%s", cliente->datosCliente->rutCliente);
+                break;
+            }
+
+            case 3:{
+                printf("Ingreses la cantidad del gastos del cliente: \n");
+                int cantidadGastos;
+                scanf("%d", &cantidadGastos);
+                cliente->datosCliente->gastosCliente = (struct Ventas**) malloc(cantidadGastos * sizeof(struct Ventas*));
+                cliente->datosCliente->numVentas = cantidadGastos;
+                printf("¿Desea modificar una venta? (1. Sí, 0. No)\n");
+                int opcionVenta;
+                scanf("%d", &opcionVenta);
+                if(opcionVenta == 1){
+                    for (int i = 0; i < cliente->datosCliente->numVentas; i++) {
+                        cliente->datosCliente->gastosCliente[i] = (struct Ventas*) malloc(cantidadGastos * sizeof(struct Ventas*));
+                        printf("¿Se ha comprado un auto? (1. Sí, 0. No)\n");
+                        int opcionAuto;
+                        scanf("%d", &opcionAuto);
+                        if(opcionAuto == 1){
+                            printf("Ingrese el nombre de la marca del auto: \n");
+                            scanf("%s", cliente->datosCliente->gastosCliente[i]->nombreMarca);
+
+                            printf("Ingrese el nombre del modelo del auto: \n");
+                            scanf("%s", cliente->datosCliente->gastosCliente[i]->nombreModelo);
+
+                            printf("Ingrese el monto de la venta del auto: \n");
+                            scanf("%lf", &(cliente->datosCliente->gastosCliente[i]->montoVentaAuto));
+                        }
+                        else{
+                            strcpy(cliente->datosCliente->gastosCliente[i]->nombreMarca," ");
+                            strcpy(cliente->datosCliente->gastosCliente[i]->nombreModelo," ");
+                            cliente->datosCliente->gastosCliente[i]->montoVentaAuto = 0.0;
+                        }
+
+                        printf("¿Se ha comprado algún accesorio? (1. Sí, 0. No)\n");
+                        int opcionAccesorio;
+                        scanf("%d",&opcionAccesorio);
+                        if(opcionAccesorio == 1){
+                            printf("Ingrese los accesorios comprados: \n");
+                            scanf("%s", cliente->datosCliente->gastosCliente[i]->accesorios);
+                            printf("Ingrese el monto de la venta de accesorios: \n");
+                            scanf("%lf", cliente->datosCliente->gastosCliente[i]->montoVentaAcc);
+                        }
+                        else{
+                            strcpy(cliente->datosCliente->gastosCliente[i]->accesorios," ");
+                            cliente->datosCliente->gastosCliente[i]->montoVentaAcc = 0.0;
+                        }
+
+                        printf("¿Se ha comprado algún repuesto? (1. Sí, 0. No)\n");
+                        int opcionRepuesto;
+                        scanf("%d",&opcionRepuesto);
+                        if(opcionRepuesto == 1){
+                            printf("Ingrese los repuestos comprados: \n");
+                            scanf("%s", cliente->datosCliente->gastosCliente[i]->repuestos);
+                            printf("Ingrese el monto de la venta de repuestos: \n");
+                            scanf("%lf", cliente->datosCliente->gastosCliente[i]->montoVentaRep);
+                        }
+                        else{
+                            strcpy(cliente->datosCliente->gastosCliente[i]->repuestos," ");
+                            cliente->datosCliente->gastosCliente[i]->montoVentaRep = 0.0;
+                        }
+                    }
+                }
+                break;
+            }
+
+            default:{
+                printf("Opción no válida\n");
+                break;
+            }
+        }
+    }
+    else printf("Usuario no encontrado.\n");
+}
+
+
+void listarClientes(struct NodoCliente *headCliente){
+    struct NodoCliente *recCliente = headCliente;
+    if(recCliente == NULL) printf("No se han registrado clientes\n");
+    else{
+        while(recCliente != NULL){
+            printf("Nombre del Cliente: %s\n", recCliente->datosCliente->nombreCliente);
+            printf("Rut del cliente: %s\n",recCliente->datosCliente->rutCliente);
+            printf("\n**********************\n");
+            recCliente = recCliente->sig;
+        }
+    }
+}
+
+void menuSwitchClientes(struct NodoCliente *headCliente){
+
+    int opcion;
+    do{
+        printf("*******-BIENVENIDO AL MENÚ DE OPCIONES-*******\n");
+        printf("1.- AGREGAR CLIENTE\n");
+        printf("2.- ELIMINAR CLIENTE\n");
+        printf("3.- BUSCAR CLIENTE\n");
+        printf("4.- MODIFICAR CLIENTE\n");
+        printf("5.- LISTAR CLIENTES \n");
+        printf("0.- SALIR\n");
+        printf("Ingrese una opción");
+        scanf("%d", &opcion);
+
+
+        switch(opcion){
+            case 1:{
+                agregarCliente(&headCliente);
+                break;
+            }
+
+            case 2:{
+                char rut[MAXRUT];
+                printf("Ingrese el rut del cliente que desea eliminar: \n");
+                scanf("%s", rut);
+                eliminarCliente(&headCliente,rut);
+                break;
+            }
+
+            case 3:{
+                char rut[MAXRUT];
+                printf("Ingrese el rut del cliente que desea buscar: \n");
+                scanf("%s", rut);
+                clienteBuscado(headCliente, rut);
+                if(headCliente != NULL){
+                    printf("Se ha encontrado al cliente\n");
+                    printf("Datos del cliente buscado:\nNombre: %s\nRut: %s",headCliente->datosCliente->nombreCliente,headCliente->datosCliente->rutCliente);
+                }
+                else printf("No se ha encontrado al cliente\n");
+                break;
+            }
+
+            case 4:{
+                char rut[MAXRUT];
+                printf("Ingrese el rut del cliente que desea modificar: \n");
+                scanf("%s", rut);
+                modificarCliente((headCliente), rut);
+                break;
+            }
+
+            case 5:{
+                listarClientes((headCliente));
+                break;
+            }
+
+            case 0:{
+                printf("Terminando programa\n");
+                break;
+            }
+            default:{
+                printf("Ha ocurrido un error, intente nuevamente\n");
+                break;
+            }
+
+        }
+    }while(opcion != 0);
+}
+
+
+
+void agregarProducto(struct NodoProducto **headProducto){
+    struct NodoProducto *nuevoProducto = (struct NodoProducto*) malloc(sizeof(struct NodoProducto));
+    nuevoProducto->datosProductos = (struct Producto *) malloc(sizeof(struct Producto));
+
+    printf("Ingrese el nombre de la marca: \n");
+    nuevoProducto->datosProductos->marca = (char *) malloc(MAXNAME *sizeof(char));
+    scanf("%s", nuevoProducto->datosProductos->marca);
+
+    printf("Ingrese el nombre del modelo: \n");
+    nuevoProducto->datosProductos->modelo= (char *) malloc(MAXNAME *sizeof(char));
+    scanf("%s",nuevoProducto->datosProductos->modelo);
+
+    printf("Ingrese el accesorio que desea agregar: \n");
+    nuevoProducto->datosProductos->accesorios = (char *) malloc(MAXNAME *sizeof(char));
+    scanf("%s", nuevoProducto->datosProductos->accesorios);
+
+    printf("Ingrese el repuesto que desea agregar: \n");
+    nuevoProducto->datosProductos->repuestos = (char *) malloc(MAXNAME *sizeof(char));
+    scanf("%s", nuevoProducto->datosProductos->repuestos);
+
+    printf("Ingrese la cantidad de recall: \n");
+    scanf("%d", &(nuevoProducto->datosProductos->llamadaAutoRecall));
+
+    nuevoProducto->ant = NULL;
+    nuevoProducto->sig = *headProducto;
+    if((*headProducto) != NULL){
+        (*headProducto)->ant = nuevoProducto;
+    }
+
+    (*headProducto) = nuevoProducto;
+
+}
+
+void eliminarAuto(struct NodoProducto **headProducto, char *modeloEliminar){
+    struct NodoProducto *recProducto = *headProducto;
+    struct NodoProducto *ant = NULL;
+    while(recProducto != NULL){
+        if(strcmp(recProducto->datosProductos->modelo,modeloEliminar)==0){
+            if(ant == NULL){
+                *headProducto = recProducto->sig;
+            }else{
+                ant->sig = recProducto->sig;
+            }
+
+            free(recProducto->datosProductos->accesorios);
+            free(recProducto->datosProductos->repuestos);
+            free(recProducto->datosProductos->marca);
+            free(recProducto->datosProductos->modelo);
+            free(recProducto->datosProductos);
+            free(recProducto);
+            printf("Producto eliminado.\n");
+            return;
+        }
+
+        ant = recProducto;
+        recProducto = recProducto->sig;
+    }
+    printf("No se encontró un producto con el modelo especificado.\n");
+}
+
+void modificarAuto(struct NodoProducto *headProducto, char *modeloModificar, char *nuevoModelo){
+    struct NodoProducto *recProducto = headProducto;
+    while(recProducto != NULL){
+        if(strcmp(recProducto->datosProductos->modelo,modeloModificar)== 0){
+            strcpy(recProducto->datosProductos->modelo,nuevoModelo);
+        }
+        recProducto = recProducto->sig;
+    }
+}
+
+void menuSwitchProductos(struct NodoProducto *headProducto) {
+    int opcion;
+    char modeloAuto[MAXNAME];
+    char modeloModificar[MAXNAME];
+    char nuevoModelo[MAXNAME];
+    do{
+        printf("\n--- Menú de Operaciones con NodoProducto ---\n");
+        printf("1. Agregar Producto\n");
+        printf("2. Eliminar Auto\n");
+        printf("3. Modificar Auto\n");
+        printf("4. Salir\n");
+        printf("Ingrese una opción: ");
+        scanf("%d", &opcion);
+
+        switch (opcion) {
+            case 1:
+
+                agregarProducto((&headProducto));
+                break;
+            case 2:
+                printf("Ingrese el modelo de auto que desea eliminar: \n");
+                scanf("%s",modeloAuto);
+                eliminarAuto(&(headProducto), modeloAuto);
+                break;
+            case 3:
+                printf("Ingrese el modelo del auto que desea modificar: \n");
+                scanf("%s",modeloModificar);
+                printf("Ingrese el nuevo modelo que desea colocar: \n");
+                scanf("%s", nuevoModelo);
+                modificarAuto(headProducto, modeloModificar, nuevoModelo);
+                break;
+            case 5:
+                printf("Saliendo del menú.\n");
+                return;
+            default:
+                printf("Opción inválida. Por favor, intente nuevamente.\n");
+                break;
+        }
+    }while(opcion!=0);
+}
+
+int main()
+{
+
+    struct EmpresaDerco *datos;
+    int opcion;
+
+    do{
+        printf("1.- Sección Regiones");
+        printf("2.- Sección Plantas");
+        printf("3.- Sección Importaciones");
+        printf("4.- Sección Productos");
+        printf("5.- Sección Clientes");
+        printf("6.- Sección Análisis movimientos");
+        printf("Ingrese una opción\n");
+        scanf("%d", &opcion);
+
+        switch (opcion) {
+            case 1: {
+                menuSwitchRegiones(datos->headRegion);
+                break;
+            }
+
+            case 2: {
+                menuSwitchPlantas(datos->headRegion->datosRegion->plantas);
+                break;
+            }
+
+            case 3: {
+                menuSwitchImportaciones(datos->headRegion->datosRegion->plantas->datosPlanta->importacion);
+                break;
+            }
+
+            case 4: {
+                menuSwitchProductos(
+                        datos->headRegion->datosRegion->plantas->datosPlanta->importacion->datosImportacion->productos);
+                break;
+            }
+
+            case 5: {
+                menuSwitchClientes(datos->headCliente);
+                break;
+            }
+
+            case 6: {
+                menuSwitchAnalisis(datos);
+                break;
+            }
+            default:
+                break;
+        }
+    }while(opcion != 0);
+
+}
